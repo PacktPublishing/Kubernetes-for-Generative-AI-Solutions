@@ -1,5 +1,8 @@
 # Use an official Python runtime as a parent image
-FROM python:slim
+# Pinned: the unqualified `python:slim` tag now resolves to Python 3.14,
+# where the pinned LangChain 0.3 / pydantic stack fails to evaluate
+# forward-referenced type annotations.
+FROM python:3.13-slim
 
 # Set the working directory in the container
 WORKDIR /app

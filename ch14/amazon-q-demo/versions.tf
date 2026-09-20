@@ -14,7 +14,8 @@ terraform {
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = ">= 2.32.0"
+      # Upper bound added: without it this resolves to the 3.x provider.
+      version = ">= 2.32.0, < 3.0"
     }
     helm = {
       source  = "hashicorp/helm"

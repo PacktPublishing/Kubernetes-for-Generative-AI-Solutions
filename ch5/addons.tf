@@ -1,6 +1,6 @@
 module "eks_blueprints_addons" {
   source = "aws-ia/eks-blueprints-addons/aws"
-  version = "~> 1.21"
+  version = "~> 1.23.0"
   cluster_name = module.eks.cluster_name
   cluster_endpoint = module.eks.cluster_endpoint
   cluster_version = module.eks.cluster_version
@@ -20,7 +20,7 @@ module "eks_blueprints_addons" {
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 20.36"
+  version = "~> 20.37"
 
   cluster_name          = module.eks.cluster_name
   enable_v1_permissions = true
@@ -47,7 +47,7 @@ resource "helm_release" "karpenter" {
   # repository_username = data.aws_ecrpublic_authorization_token.token.user_name
   # repository_password = data.aws_ecrpublic_authorization_token.token.password
   chart               = "karpenter"
-  version             = "1.4.0"
+  version             = "1.14.1"
 
   values = [
     <<-EOT
@@ -72,7 +72,7 @@ resource "helm_release" "karpenter" {
 #---------------------------------------------------------------
 module "ebs_csi_driver_irsa" {
   source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.55"
+  version = "~> 5.60"
   role_name_prefix = format("%s-%s", local.name, "ebs-csi-driver-")
   attach_ebs_csi_policy = true
   oidc_providers = {

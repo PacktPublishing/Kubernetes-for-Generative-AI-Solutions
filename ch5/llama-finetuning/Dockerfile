@@ -11,8 +11,18 @@ RUN apt-get update && apt-get install -y python3.12 python3.12-venv python3-pip 
 # Set Python3 as default
 RUN python3.12 -m venv $VIRTUAL_ENV && $VIRTUAL_ENV/bin/pip install --upgrade pip
 
-# Install necessary packages
-RUN pip install torch transformers datasets peft accelerate bitsandbytes sentencepiece s3fs boto3
+# Install necessary packages. transformers is held on the 4.x line and
+# datasets on 3.x because fine_tune.py targets those APIs.
+RUN pip install --no-cache-dir \
+      torch==2.14.0 \
+      transformers==4.57.6 \
+      datasets==3.6.0 \
+      peft==0.20.0 \
+      accelerate==1.15.0 \
+      bitsandbytes==0.50.2 \
+      sentencepiece==0.2.2 \
+      s3fs==2025.12.0 \
+      boto3==1.43.93
 
 WORKDIR /app
 

@@ -1,8 +1,8 @@
 module "eks" {
   source = "terraform-aws-modules/eks/aws"
-  version = "~> 20.36"
+  version = "~> 20.37"
   cluster_name = local.name
-  cluster_version = "1.32"
+  cluster_version = "1.36"
   enable_cluster_creator_admin_permissions = true
   cluster_endpoint_public_access = true
   vpc_id = module.vpc.vpc_id
@@ -63,6 +63,7 @@ output "configure_kubectl" {
 #---------------------------------------------------------------
 module "llama_fine_tuning_irsa" {
   source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.60"
   role_name = "${module.eks.cluster_name}-llama-fine-tuning"
   role_policy_arns = {
     policy = "arn:aws:iam::aws:policy/AmazonS3FullAccess"

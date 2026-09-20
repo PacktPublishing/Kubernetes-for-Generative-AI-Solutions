@@ -1,3 +1,11 @@
+# REFERENCE ONLY. Do not copy this file into your working directory.
+#
+# These are the same Karpenter blocks that addons.tf already declares, pulled out
+# on their own because Chapter 6 walks through them. addons.tf is what you apply.
+# Having both files present gives you "Duplicate module call" and "Duplicate
+# resource" errors, and the duplicate persists into Chapters 7, 9 and 12, whose
+# addons.tf also declares Karpenter.
+
 # provider "aws" {
 #   alias  = "ecr"
 #   region = "us-east-1"
@@ -13,7 +21,7 @@
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 20.31"
+  version = "~> 20.37"
 
   cluster_name          = module.eks.cluster_name
   enable_v1_permissions = true
@@ -35,7 +43,7 @@ resource "helm_release" "karpenter" {
   create_namespace    = true
   repository          = "oci://public.ecr.aws/karpenter"
   chart               = "karpenter"
-  version             = "1.0.2"
+  version             = "1.14.1"
 
   values = [
     <<-EOT

@@ -11,8 +11,17 @@ RUN apt-get update && apt-get install -y python3.12 python3.12-venv python3-pip 
 # Set Python3 as default
 RUN python3.12 -m venv $VIRTUAL_ENV && $VIRTUAL_ENV/bin/pip install --upgrade pip
 
-# Install necessary packages
-RUN pip install torch transformers peft accelerate bitsandbytes sentencepiece fastapi uvicorn
+# Install necessary packages. transformers is held on the 4.x line because
+# main.py targets that API; 5.x is not backwards compatible.
+RUN pip install --no-cache-dir \
+      torch==2.14.0 \
+      transformers==4.57.6 \
+      peft==0.20.0 \
+      accelerate==1.15.0 \
+      bitsandbytes==0.50.2 \
+      sentencepiece==0.2.2 \
+      fastapi==0.141.1 \
+      uvicorn==0.52.4
 
 WORKDIR /app
 
