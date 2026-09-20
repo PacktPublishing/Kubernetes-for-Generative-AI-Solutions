@@ -1,2 +1,4 @@
-requests
-gradio
+requests==2.34.2
+# Pinned to the Gradio 5 line: gradio-app.py builds chat history as
+# (user, bot) tuples, which Gradio 6 removed in favour of type="messages".
+gradio==5.50.0

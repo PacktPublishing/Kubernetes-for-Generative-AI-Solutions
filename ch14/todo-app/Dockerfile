@@ -1,5 +1,5 @@
 # Use a slim Python image as base
-FROM python:3.9-slim
+FROM python:3.13-slim
 
 # Set working directory
 WORKDIR /app
@@ -24,4 +24,4 @@ USER appuser
 EXPOSE 5000
 
 # Command to run the application using gunicorn for production
-CMD gunicorn --bind 0.0.0.0:$PORT app:app
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT app:app"]

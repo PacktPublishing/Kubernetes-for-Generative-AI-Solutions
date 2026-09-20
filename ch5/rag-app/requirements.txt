@@ -1,11 +1,21 @@
-fastapi
-uvicorn
-pydantic
-qdrant-client
-langchain
-boto3
-requests
-langchain-community
-langchain-qdrant
-langsmith
-langchain-openai
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.5
+# main.py imports httpx directly, so declare it rather than relying on it
+# arriving as a transitive dependency of the langchain/openai packages.
+httpx==0.28.1
+qdrant-client==1.19.0
+boto3==1.43.93
+requests==2.34.2
+
+# Pinned to the LangChain 0.3 line on purpose. main.py uses
+# langchain.memory, langchain.text_splitter, langchain.chains.RetrievalQA and
+# create_history_aware_retriever; LangChain 1.x moved or removed all of these,
+# so an unpinned `langchain` install will fail at import time.
+langchain==0.3.30
+langchain-core==0.3.86
+langchain-community==0.3.31
+langchain-text-splitters==0.3.11
+langchain-qdrant==0.2.1
+langchain-openai==0.2.14
+langsmith==0.12.4

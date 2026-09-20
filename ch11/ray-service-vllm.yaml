@@ -1,3 +1,24 @@
+# Serve Llama 3.1 8B Instruct with vLLM behind Ray Serve on KubeRay.
+#
+# This manifest was reworked for current Ray/KubeRay releases:
+#   * The old config pulled a `working_dir` zip from KubeRay `master` and
+#     imported `ray-operator.config.samples.vllm.serve:model`. That sample no
+#     longer exists upstream (only the TPU variant remains), so the RayService
+#     could never become ready.
+#   * `rayproject/ray-ml` images are no longer published. Ray now ships
+#     `rayproject/ray-llm`, which bundles vLLM, so no runtime pip install is
+#     needed and the pod starts far faster.
+#   * Ray Serve LLM's `build_openai_app` exposes an OpenAI-compatible API
+#     (/v1/chat/completions, /v1/completions, /v1/models).
+#
+# The cu130 image needs an NVIDIA driver >= 580. The EKS 1.36 AL2023 NVIDIA
+# AMI ships 580.178.04, so g6 (L4) nodes from this book's GPU node pool work
+# as-is.
+#
+# Create the Hugging Face token secret first, and make sure the token has
+# been granted access to the gated meta-llama repo:
+#   kubectl create secret generic hf-secret \
+#     --from-literal=hf_api_token=hf_xxxxxxxxxxxxxxxx
 apiVersion: ray.io/v1
 kind: RayService
 metadata:
@@ -7,30 +28,36 @@ spec:
     applications:
     - name: llm
       route_prefix: /
-      import_path: ray-operator.config.samples.vllm.serve:model
-      deployments:
-      - name: VLLMDeployment
-        num_replicas: 1
-        ray_actor_options:
-          num_cpus: 8
-          # NOTE: num_gpus is set automatically based on TENSOR_PARALLELISM
-      runtime_env:
-        working_dir: "https://github.com/ray-project/kuberay/archive/master.zip"
-        pip: ["vllm==0.5.4"]
-        env_vars:
-          MODEL_ID: "meta-llama/Meta-Llama-3-8B-Instruct"
-          TENSOR_PARALLELISM: "1"
-          PIPELINE_PARALLELISM: "1"
+      import_path: ray.serve.llm:build_openai_app
+      args:
+        llm_configs:
+        - model_loading_config:
+            model_id: meta-llama/Llama-3.1-8B-Instruct
+            model_source: meta-llama/Llama-3.1-8B-Instruct
+          engine_kwargs:
+            dtype: bfloat16
+            max_model_len: 8192
+            tensor_parallel_size: 1
+            gpu_memory_utilization: 0.90
+          deployment_config:
+            autoscaling_config:
+              min_replicas: 1
+              max_replicas: 5
+              target_ongoing_requests: 32
+            max_ongoing_requests: 64
   rayClusterConfig:
+    rayVersion: "2.58.0"
     enableInTreeAutoscaling: true
     headGroupSpec:
       rayStartParams:
         dashboard-host: '0.0.0.0'
+        # Keep model replicas off the head node.
+        num-gpus: "0"
       template:
         spec:
           containers:
           - name: ray-head
-            image: rayproject/ray-ml:2.33.0.914af0-py311
+            image: rayproject/ray-llm:2.58.0-py312-cu130
             resources:
               limits:
                 cpu: "2"
@@ -47,6 +74,8 @@ spec:
               name: client
             - containerPort: 8000
               name: serve
+            - containerPort: 8080
+              name: metrics
             env:
             - name: HUGGING_FACE_HUB_TOKEN
               valueFrom:
@@ -55,7 +84,7 @@ spec:
                   key: hf_api_token
     workerGroupSpecs:
     - replicas: 1
-      minReplicas: 0
+      minReplicas: 1
       maxReplicas: 5
       groupName: gpu-group
       rayStartParams: {}
@@ -63,7 +92,7 @@ spec:
         spec:
           containers:
           - name: llm
-            image: rayproject/ray-ml:2.33.0.914af0-py311
+            image: rayproject/ray-llm:2.58.0-py312-cu130
             env:
             - name: HUGGING_FACE_HUB_TOKEN
               valueFrom:
@@ -79,7 +108,7 @@ spec:
                 cpu: "8"
                 memory: "40Gi"
                 nvidia.com/gpu: "1"
-          # Please add the following taints to the GPU node.
+          # The GPU nodes created in Chapter 6 carry this taint.
           tolerations:
             - key: "nvidia.com/gpu"
               operator: "Exists"

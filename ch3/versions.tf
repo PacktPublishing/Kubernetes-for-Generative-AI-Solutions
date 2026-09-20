@@ -11,7 +11,9 @@ terraform {
     }
     kubernetes = {
       source = "hashicorp/kubernetes"
-      version = ">= 2.36"
+      # Upper bound added: without it this resolves to the 3.x provider, which
+      # deprecates kubernetes_namespace and the other resources used here.
+      version = ">= 2.36, < 3.0"
     }
   }
 }

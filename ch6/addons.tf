@@ -1,3 +1,11 @@
+# Chapter 6 add-ons: the same set as ch5, plus the Vertical Pod Autoscaler.
+#
+# Karpenter, the EBS CSI driver and the gp3 StorageClass are deliberately kept
+# here. Dropping them would delete the storage that ch5's Qdrant and JupyterHub
+# volumes depend on when you overlay this chapter.
+#
+# Do not also copy this chapter's karpenter.tf: Karpenter is already declared
+# below, and declaring it twice is a "Duplicate module call" error.
 module "eks_blueprints_addons" {
   source = "aws-ia/eks-blueprints-addons/aws"
   version = "~> 1.23.0"
@@ -7,52 +15,11 @@ module "eks_blueprints_addons" {
   oidc_provider_arn = module.eks.oidc_provider_arn
   enable_aws_load_balancer_controller = true
 
-  # Carried forward from Chapter 6 so overlaying this chapter does not delete the
-  # Vertical Pod Autoscaler. The module defaults to a very old chart, so pin one
-  # that supports current Kubernetes.
+  # Vertical Pod Autoscaler, for chatbot-ui-vpa.yaml. The module still defaults
+  # to a very old chart, so pin a release that supports current Kubernetes.
   enable_vpa = true
   vpa = {
     chart_version = "5.0.1"
-  }
-  enable_secrets_store_csi_driver = true
-  enable_secrets_store_csi_driver_provider_aws = true
-
-  secrets_store_csi_driver = {
-    chart_version = "1.6.1"
-    values = [
-      <<-EOT
-      syncSecret:
-        enabled: true
-      # Required by secret-provider-class.yaml's usePodIdentity: "true". The
-      # driver has to request a service account token to exchange for Pod
-      # Identity credentials, and the chart leaves tokenRequests empty by
-      # default. Without this the mount fails with
-      # 'CSI token error: serviceAccount.tokens not provided'.
-      tokenRequests:
-        # pods.eks.amazonaws.com is the audience EKS Pod Identity uses, which is
-        # what secret-provider-class.yaml selects with usePodIdentity: "true".
-        # sts.amazonaws.com is kept so the same install also works with IRSA.
-        - audience: pods.eks.amazonaws.com
-        - audience: sts.amazonaws.com
-      EOT
-    ]
-  }
-  
-  secrets_store_csi_driver_provider_aws = {
-    chart_version = "3.1.3"
-    values = [
-      <<-EOT
-      tolerations:
-        - operator: Exists
-      # From chart 2.0.0 onward the AWS provider bundles secrets-store-csi-driver
-      # as a subchart. We install the driver separately above (so that
-      # syncSecret can be enabled), so switch the bundled copy off. Leaving it on
-      # installs the driver twice and the pre-install hook fails with
-      # 'serviceaccounts "secrets-store-csi-driver-upgrade-crds" already exists'.
-      secrets-store-csi-driver:
-        install: false
-      EOT
-    ]
   }
   eks_addons = {
     aws-ebs-csi-driver = {
@@ -63,25 +30,6 @@ module "eks_blueprints_addons" {
     kube-proxy = {}
     vpc-cni = {}
     eks-pod-identity-agent = {}
-  }
-  enable_kube_prometheus_stack = true
-  kube_prometheus_stack = {
-    values = [
-      templatefile("${path.module}/kube-prometheus.yaml", {
-        storage_class_type     = kubernetes_storage_class.default_gp3.id
-      })
-    ]
-    chart_version = "90.2.0"
-    namespace     = "monitoring"
-  }
-
-  helm_releases = {
-    "prometheus-adapter" = {
-      repository = "https://prometheus-community.github.io/helm-charts"
-      chart      = "prometheus-adapter"
-      namespace  = module.eks_blueprints_addons.kube_prometheus_stack.namespace
-      version    = "5.3.0"
-    }
   }
 }
 
@@ -98,10 +46,21 @@ module "karpenter" {
   create_pod_identity_association = true
 }
 
+provider "aws" {
+  region = "us-east-1"
+  alias  = "virginia"
+}
+
+data "aws_ecrpublic_authorization_token" "token" {
+  provider = aws.virginia
+}
+
 resource "helm_release" "karpenter" {
   name                = "karpenter"
   namespace           = "kube-system"
   repository          = "oci://public.ecr.aws/karpenter"
+  # repository_username = data.aws_ecrpublic_authorization_token.token.user_name
+  # repository_password = data.aws_ecrpublic_authorization_token.token.password
   chart               = "karpenter"
   version             = "1.14.1"
 
@@ -175,20 +134,4 @@ resource "kubernetes_storage_class" "default_gp3" {
   }
 
   depends_on = [kubernetes_annotations.disable_gp2]
-}
-
-# Chart renamed from "cost-analyzer" to "kubecost", and the values file moved to
-# the kubecost/kubecost repo. Keep this URL's tag and the chart version in step.
-data "http" "kubecost_values" {
-  url = "https://raw.githubusercontent.com/kubecost/kubecost/v3.2.4/kubecost/values-eks-cost-monitoring.yaml"
-}
-
-resource "helm_release" "kubecost" {
-  name       = "kubecost"
-  repository = "oci://public.ecr.aws/kubecost"
-  chart      = "kubecost"
-  version    = "3.2.4"
-  namespace  = "kubecost"
-  create_namespace = true
-  values = [data.http.kubecost_values.response_body]
 }

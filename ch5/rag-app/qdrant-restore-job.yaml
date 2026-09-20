@@ -7,7 +7,7 @@ spec:
     spec:
       containers:
       - name: qdrant-restore
-        image: curlimages/curl:latest
+        image: curlimages/curl:8.18.0
         command: ["sh", "-c"]
         args:
           - |

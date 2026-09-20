@@ -4,7 +4,7 @@
  * This configuration sets up an Amazon EKS cluster with:
  * - Dedicated VPC with public/private subnets across 3 AZs
  * - NAT gateway for internet access from private subnets
- * - EKS v1.32 cluster with managed node groups
+ * - EKS v1.36 cluster with managed node groups
  * - Standard EKS managed add-ons
  */
 
@@ -50,7 +50,7 @@ locals {
 # Create VPC using the AWS VPC module
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.1"
+  version = "~> 5.21"
 
   name = "${local.cluster_name}-vpc"
   cidr = var.vpc_cidr
@@ -85,7 +85,7 @@ module "vpc" {
 # Create EKS cluster using the AWS EKS module
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"  # Updated to latest compatible version
+  version = "~> 20.37"
 
   cluster_name    = local.cluster_name
   cluster_version = var.kubernetes_version
@@ -118,18 +118,21 @@ module "eks" {
       max_size     = 5
       desired_size = 2
 
-      # Use latest EKS optimized AMI
-      ami_type = "AL2_x86_64"
+      # Amazon Linux 2 reached end of support for EKS; AL2023 is the current
+      # EKS-optimized AMI family.
+      ami_type = "AL2023_x86_64_STANDARD"
 
-      # Allow remote access to nodes
-      remote_access = {
-        ec2_ssh_key = var.key_name
-      }
+      # `remote_access` is only valid when use_custom_launch_template = false.
+      # This module builds a custom launch template by default, so SSH access
+      # is configured through the launch template's key name instead.
+      key_name = var.key_name
     }
   }
 
-  # Configure aws-auth configmap with node role
-  manage_aws_auth_configmap = true
+  # Grant the identity running `terraform apply` cluster-admin via an EKS access
+  # entry. v20 of this module replaced aws-auth configmap management (the old
+  # `manage_aws_auth_configmap` argument) with the EKS Access Entry API.
+  enable_cluster_creator_admin_permissions = true
 
   tags = local.tags
 }

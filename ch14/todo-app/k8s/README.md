@@ -75,3 +75,16 @@ Since we're using a ClusterIP service, the application is only accessible within
 The application uses the following environment variables that can be configured in the ConfigMap:
 
 - `PORT`: The port the application listens on (default: 5000)
+
+## Notes
+
+- `deployment.yaml` ships with `image: todo-app:latest` and
+  `imagePullPolicy: IfNotPresent`, which works for a local `kind` cluster where
+  you can side-load the image (`kind load docker-image todo-app:latest`). For EKS
+  you must push to a registry and set the full image reference, as described in
+  step 2 above.
+- The liveness and readiness probes both hit `/`, which renders the UI template.
+  If you change the routes, update the probe paths to match.
+- `kubectl apply -k .` already creates the namespace, since `namespace.yaml` is
+  listed in `kustomization.yaml` - the separate `kubectl apply -f namespace.yaml`
+  in step 3 is belt-and-braces, not a requirement.
